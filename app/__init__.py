@@ -10,7 +10,7 @@ COLORS = {
     'reminders': 'orange_red1',
     'study': 'navajo_white1',
 }
-INSERT_STMT = """INSERT INTO todos VALUES
+INSERT_STMT = """INSERT INTO task_table VALUES
 (:task, :category, :date_added, :date_completed, :status, :position)"""
 HOME_DIR = expanduser('~')
 DB_PATH = f'{HOME_DIR}/.config/task_tracker'
