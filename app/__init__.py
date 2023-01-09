@@ -17,5 +17,5 @@ DB_PATH = f'{HOME_DIR}/.config/task_tracker'
 if not exists(DB_PATH):
     print('')
     mkdir(DB_PATH)
-CONN = sqlite3.connect(f"{DB_PATH}/todos.db")
+CONN = sqlite3.connect(f"{DB_PATH}/task_list.db")
 CUR = CONN.cursor()

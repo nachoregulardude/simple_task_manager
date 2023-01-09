@@ -21,7 +21,8 @@ class Todo:
                  date_completed=None,
                  status=None,
                  position=None):
-        self.task = task.title()
+        self.task = ' '.join(word if word.isupper() else word.title()
+                             for word in task.split(' '))
         self.category = category.upper()
         self.date_added = date_added or datetime.now()
         self.date_completed = date_completed or 'Not-Done'
@@ -47,7 +48,7 @@ class Todo:
         }
 
 
-@APP.command(short_help='adds an item')
+@APP.command(short_help='adds an item. "task" "category"')
 def add(task: str, category: str):
     typer.echo(f"Adding {task}, {category}")
     todo = Todo(task, category)
@@ -55,23 +56,21 @@ def add(task: str, category: str):
     show(None)
 
 
-@APP.command(
-    short_help=
-    'deletes an item with position x. Delete entire task list if position is 0'
-)
+@APP.command(short_help='''Deletes an item with position x.
+    Delete entire task list if position is 0''')
 def delete(position: int):
     if position == 0:
         typer.echo("Deleting the entire task list... 🤷")
-        delete_todo(-1)
-        show(None)
-        return
-    typer.echo(f"Deleting {position}")
+    else:
+        typer.echo(f"Deleting task at {position}")
     delete_todo(position - 1)
     show(None)
 
 
-@APP.command()
-def update(position: int, category: str, tasks: str):
+@APP.command(short_help='Update task at position x.')
+def update(position: int,
+           tasks: Optional[str] | None = typer.Argument(''),
+           category: Optional[str] | None = typer.Argument('')):
     update_dict = {}
     if category:
         update_dict['category'] = category
@@ -82,14 +81,15 @@ def update(position: int, category: str, tasks: str):
     show(None)
 
 
-@APP.command(short_help='mark an item as completed with position x')
+@APP.command(short_help='mark a task as completed with position x')
 def done(position: int):
     typer.echo(f"Task {position} marked as completed! 🙇")
     complete_todo(position - 1)
     show(None)
 
 
-@APP.command(short_help='show the list of tasks in the table')
+@APP.command(short_help='''show the list of tasks in the table.
+             Pass in a category to look at just that category''')
 def show(categories: Optional[str] = typer.Argument('')):
     tasks = get_all_todos()
     table = Table(
@@ -104,25 +104,15 @@ def show(categories: Optional[str] = typer.Argument('')):
     table.add_column("Status", min_width=12, justify="right")
     table.add_column("Time Added", min_width=12, justify="right")
     table.add_column("Time Completed", min_width=12, justify="right")
-    categories_to_search = []
-    if categories:
-        categories_to_search = categories.split(',')
+    categories_to_search = categories.split(',') if categories else []
 
-    def get_category_color(category):
-        return 'white' if category.lower() not in COLORS else COLORS[
-            category.lower()]
-
-    all_done = False
-    if all(task.status == 2 for task in tasks) and tasks:
-        CONSOLE.print('Nice! All tasks completed!🤌')
-        all_done = True
-
+    all_done = check_if_all_done(tasks)
     for idx, task in enumerate(tasks, start=1):
         color = get_category_color(task.category)
         if not all_done:
             is_done_str = '✅ Done' if task.status == 2 else '⭕ To Do'
         else:
-            is_done_str = '🍻 All done!'
+            is_done_str = '🍻'
         if categories_to_search and task.category.lower(
         ) not in categories_to_search:
             continue
@@ -133,9 +123,22 @@ def show(categories: Optional[str] = typer.Argument('')):
     CONSOLE.print(table)
 
 
+def get_category_color(category):
+    return 'white' if category.lower() not in COLORS else COLORS[
+        category.lower()]
+
+
+def check_if_all_done(tasks):
+    all_done = False
+    if all(task.status == 2 for task in tasks) and tasks:
+        CONSOLE.print('Nice! All tasks completed!🤌')
+        all_done = True
+    return all_done
+
+
 def create_table():
     CUR.execute("""
-                CREATE TABLE IF NOT EXISTS todos (
+                CREATE TABLE IF NOT EXISTS task_table (
                     task text,
                     category varchar,
                     date_added timestamp,
@@ -147,7 +150,7 @@ def create_table():
 
 
 def insert_todo(todo: Todo):
-    CUR.execute('SELECT COUNT(*) FROM todos')
+    CUR.execute('SELECT COUNT(*) FROM task_table')
     count = CUR.fetchone()[0]
     todo.position = count or 0
     with CONN:
@@ -155,19 +158,19 @@ def insert_todo(todo: Todo):
 
 
 def get_all_todos() -> List[Todo]:
-    CUR.execute('SELECT * FROM todos')
+    CUR.execute('SELECT * FROM task_table')
     return [Todo(*result) for result in CUR.fetchall()]
 
 
 def delete_todo(position: int):
     if position == -1:
         with CONN:
-            CUR.execute("DELETE FROM todos")
+            CUR.execute("DELETE FROM task_table")
         return
-    CUR.execute("SELECT COUNT(*) FROM todos")
+    CUR.execute("SELECT COUNT(*) FROM task_table")
     count = CUR.fetchone()[0]
     with CONN:
-        CUR.execute("DELETE FROM todos WHERE position = :position",
+        CUR.execute("DELETE FROM task_table WHERE position = :position",
                     {"position": position})
         for pos in range(position + 1, count):
             change_position(pos, pos - 1, False)
@@ -177,7 +180,8 @@ def change_position(old_position: int,
                     new_position: int,
                     commit: bool = False):
     CUR.execute(
-        'UPDATE todos SET position = :new_pos WHERE position = :old_pos', {
+        'UPDATE task_table SET position = :new_pos WHERE position = :old_pos',
+        {
             'old_pos': old_position,
             'new_pos': new_position
         })
@@ -190,15 +194,15 @@ def update_todo(position: int, update_dict: dict):
     update_dict['position'] = position
     with CONN:
         CUR.execute(
-            f'UPDATE todos SET {update_skl} WHERE position = :position',
+            f'UPDATE task_table SET {update_skl} WHERE position = :position',
             update_dict)
 
 
 def complete_todo(position: int):
     with CONN:
         CUR.execute(
-            "UPDATE todos SET status = 2, date_completed = :date_completed WHERE position = :position",
-            {
+            """UPDATE task_table SET status = 2, date_completed =
+            :date_completed WHERE position = :position""", {
                 'position': position,
                 'date_completed': datetime.now()
             })
