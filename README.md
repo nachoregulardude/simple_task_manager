@@ -13,7 +13,7 @@ And you should be good to go!
 
 To uninstall:
 
-`pip uninstall task_manager`
+`pip uninstall simple_task_manager`
 
 
 ## Basic Usage
