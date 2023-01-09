@@ -8,8 +8,11 @@ Run:
 `pip install typer rich`
 
 `pip install git+https://github.com/nachoregulardude/simple_task_manager`
+
 And you should be good to go!
+
 To uninstall:
+
 `pip uninstall task_manager`
 
 
