@@ -85,14 +85,23 @@ def update(position: int,
 @APP.command(short_help='mark a task as completed with position x')
 def done(position: int):
     typer.echo(f"Task {position} marked as completed! 🙇")
-    complete_todo(position - 1, 2)
+    update_dict = {
+            'status': 2,
+            'position': position,
+            'date_completed': datetime.now()
+            }
+    update_todo(position - 1, update_dict)
     show(None)
 
 
 @APP.command(short_help='mark a task as working on with position x')
 def working(position: int):
     typer.echo(f"Task {position} marked as ongoing!")
-    complete_todo(position - 1, 3)
+    update_dict = {
+            'status': 3,
+            'position': position,
+            }
+    update_todo(position - 1, update_dict)
     show(None)
 
 
@@ -124,8 +133,9 @@ def show(categories: Optional[str] = typer.Argument('')):
                 case 2:
                     is_done_str = '✅ Done'
                 case 3:
-                    is_done_str = 'Progress'
-
+                    is_done_str = '⌛ Progress'
+                case other:
+                    is_done_str = f'ERROR{other}'
         else:
             is_done_str = '🍻'
         if categories_to_search and task.category.lower(
