@@ -1,4 +1,5 @@
 #! /usr/bin/python3
+from __future__ import annotations
 from typing import List, Optional
 from datetime import datetime
 
@@ -84,7 +85,14 @@ def update(position: int,
 @APP.command(short_help='mark a task as completed with position x')
 def done(position: int):
     typer.echo(f"Task {position} marked as completed! 🙇")
-    complete_todo(position - 1)
+    complete_todo(position - 1, 2)
+    show(None)
+
+
+@APP.command(short_help='mark a task as working on with position x')
+def working(position: int):
+    typer.echo(f"Task {position} marked as ongoing!")
+    complete_todo(position - 1, 3)
     show(None)
 
 
@@ -110,7 +118,14 @@ def show(categories: Optional[str] = typer.Argument('')):
     for idx, task in enumerate(tasks, start=1):
         color = get_category_color(task.category)
         if not all_done:
-            is_done_str = '✅ Done' if task.status == 2 else '⭕ To Do'
+            match task.status:
+                case 1:
+                    is_done_str = '⭕ To Do'
+                case 2:
+                    is_done_str = '✅ Done'
+                case 3:
+                    is_done_str = 'Progress'
+
         else:
             is_done_str = '🍻'
         if categories_to_search and task.category.lower(
@@ -198,13 +213,13 @@ def update_todo(position: int, update_dict: dict):
             update_dict)
 
 
-def complete_todo(position: int):
+def complete_todo(position: int, status: int):
     with CONN:
         CUR.execute(
-            """UPDATE task_table SET status = 2, date_completed =
+            f"""UPDATE task_table SET status = {status}, date_completed =
             :date_completed WHERE position = :position""", {
                 'position': position,
-                'date_completed': datetime.now()
+                'date_completed': datetime.now() if status == 2 else ''
             })
 
 
