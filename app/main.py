@@ -86,10 +86,10 @@ def update(position: int,
 def done(position: int):
     typer.echo(f"Task {position} marked as completed! 🙇")
     update_dict = {
-            'status': 2,
-            'position': position,
-            'date_completed': datetime.now()
-            }
+        'status': 2,
+        'position': position,
+        'date_completed': datetime.now()
+    }
     update_todo(position - 1, update_dict)
     show(None)
 
@@ -98,9 +98,9 @@ def done(position: int):
 def working(position: int):
     typer.echo(f"Task {position} marked as ongoing!")
     update_dict = {
-            'status': 3,
-            'position': position,
-            }
+        'status': 3,
+        'position': position,
+    }
     update_todo(position - 1, update_dict)
     show(None)
 
@@ -124,20 +124,15 @@ def show(categories: Optional[str] = typer.Argument('')):
     categories_to_search = categories.split(',') if categories else []
 
     all_done = check_if_all_done(tasks)
+    map_dict = {
+        1: '⭕ To Do',
+        2: '✅ Done',
+        3: '⌛ Progress',
+    }
     for idx, task in enumerate(tasks, start=1):
         color = get_category_color(task.category)
-        if not all_done:
-            match task.status:
-                case 1:
-                    is_done_str = '⭕ To Do'
-                case 2:
-                    is_done_str = '✅ Done'
-                case 3:
-                    is_done_str = '⌛ Progress'
-                case other:
-                    is_done_str = f'ERROR{other}'
-        else:
-            is_done_str = '🍻'
+        is_done_str = map_dict.get(task.status,
+                                   'ERROR') if not all_done else '🍻'
         if categories_to_search and task.category.lower(
         ) not in categories_to_search:
             continue
