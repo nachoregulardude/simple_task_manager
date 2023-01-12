@@ -70,8 +70,8 @@ def delete(position: int):
 
 @APP.command(short_help='Update task at position x.')
 def update(position: int,
-           tasks: Optional[str] | None = typer.Argument(''),
-           category: Optional[str] | None = typer.Argument('')):
+           tasks: Optional[str] = typer.Argument(''),
+           category: Optional[str] = typer.Argument('')):
     update_dict = {}
     if category:
         update_dict['category'] = category
