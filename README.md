@@ -1,6 +1,7 @@
 # Simple task manager written in Python
 
 Hey there!
+This is a work in progress
 
 ## Basic installation
 Run:
@@ -22,6 +23,8 @@ To uninstall:
 
 ###  View tasks:
 - You can look at the tasks you've created by running `task show`. This prints out a neatly formatted table with your tasks.
+- You can view a particular category by typing `task show {category}`.
+- Similarly, you can also search for multiple categories by separating the categories with a comma.
 
 ### Mark as completed:
 - You can mark a task as completed by running `task done {task_position}`. This will mark the corresponding task as completed.
@@ -41,7 +44,7 @@ To uninstall:
 Features to add:
 - Integrate way to have tasks stored in a remote server. Currently a Sqlite DB file is created at `~/.config/task_tracker`
 - Integrate push notifications for reminders.
-- 
+- Add tasks that are done to an archive. Add a way to clear the archive.
 
 ## How it works?
 
