@@ -2,12 +2,13 @@
 from __future__ import annotations
 from typing import List, Optional
 from datetime import datetime
+from random import choice
 
 import typer
 from rich.table import Table
 from rich.console import Console
 
-from app import (COLORS, INSERT_STMT, CONN, CUR)
+from app import COLORS, INSERT_STMT, CONN, CUR, COLORS_TUP
 
 APP = typer.Typer(help="Awesome CLI app for tracking tasks!")
 CONSOLE = Console()
@@ -22,8 +23,9 @@ class Todo:
                  date_completed=None,
                  status=None,
                  position=None):
-        self.task = ' '.join(word if word.isupper() else word.title()
-                             for word in task.split(' '))
+        self.task = ' '.join(
+            word if any_letter_is_upper(word) else word.title()
+            for word in task.split(' '))
         self.category = category.upper()
         self.date_added = date_added or datetime.now()
         self.date_completed = date_completed or 'Not-Done'
@@ -31,9 +33,10 @@ class Todo:
         self.position = position
 
     def __repr__(self, ) -> str:
-        return ' '.join(f"""{self.task}, {self.category}, {self.date_added},
-                    {self.date_completed}, {self.status}, {self.position}""".
-                        split())
+        return '\n'.join(
+            f"""{self.task=}, {self.category=}, {self.date_added=},
+                    {self.date_completed=}, {self.status=}, {self.position=}"""
+            .split())
 
     def get_dict(self) -> dict:
         """
@@ -49,8 +52,12 @@ class Todo:
         }
 
 
+def any_letter_is_upper(word: str) -> bool:
+    return any(letter.isupper() for letter in word)
+
+
 @APP.command(short_help='adds an item. "task" "category"')
-def add(task: str, category: str):
+def add(task: str, category: Optional[str] = typer.Argument('Unassigned')):
     typer.echo(f"Adding {task}, {category}")
     todo = Todo(task, category)
     insert_todo(todo)
@@ -62,8 +69,6 @@ def add(task: str, category: str):
 def delete(position: int):
     if position == 0:
         typer.echo("Deleting the entire task list... 🤷")
-    else:
-        typer.echo(f"Deleting task at {position}")
     delete_todo(position - 1)
     show(None)
 
@@ -94,6 +99,15 @@ def done(position: int):
     show(None)
 
 
+@APP.command(short_help='archive a task with position x')
+def archive(position: int):
+    typer.echo(f"Task {position} marked as completed! 🙇")
+    update_dict = {'status': 4, 'category': 'archive'}
+    update_todo(position - 1, update_dict)
+    move_task_to_end(position)
+    show(None)
+
+
 @APP.command(short_help='mark a task as working on with position x')
 def working(position: int):
     typer.echo(f"Task {position} marked as ongoing!")
@@ -108,7 +122,6 @@ def working(position: int):
 @APP.command(short_help='''show the list of tasks in the table.
              Pass in a category to look at just that category''')
 def show(categories: Optional[str] = typer.Argument('')):
-    tasks = get_all_todos()
     table = Table(
         show_header=True,
         header_style="bold yellow4",
@@ -121,22 +134,31 @@ def show(categories: Optional[str] = typer.Argument('')):
     table.add_column("Status", min_width=12, justify="right")
     table.add_column("Time Added", min_width=12, justify="right")
     table.add_column("Time Completed", min_width=12, justify="right")
-    categories_to_search = categories.split(',') if categories else []
+    categories_to_search = [
+        category.lower() for category in categories.split(',')
+    ] if categories else []
 
-    all_done = check_if_all_done(tasks)
     map_dict = {
         1: '⭕ To Do',
         2: '✅ Done',
         3: '⌛ Progress',
+        4: '📁 Archived',
     }
-    for idx, task in enumerate(tasks, start=1):
+    show_archive = False
+    if 'archive' in categories_to_search:
+        show_archive = True
+    tasks = get_all_todos(show_archive)
+    all_done = check_if_all_done(tasks)
+    for task in tasks:
         color = get_category_color(task.category)
-        is_done_str = map_dict.get(task.status,
-                                   'ERROR') if not all_done else '🍻'
+        is_done_str = '🍻' if all_done else map_dict.get(task.status, 'ERROR')
         if categories_to_search and task.category.lower(
         ) not in categories_to_search:
             continue
-        table.add_row(str(idx), task.task,
+        if not show_archive and task.status == 4:
+            continue
+
+        table.add_row(str(task.position + 1), task.task,
                       f"[{color}]{task.category}[/{color}]", is_done_str,
                       task.date_added.split('.')[0],
                       task.date_completed.split('.')[0])
@@ -144,7 +166,7 @@ def show(categories: Optional[str] = typer.Argument('')):
 
 
 def get_category_color(category):
-    return 'white' if category.lower() not in COLORS else COLORS[
+    return 'green3' if category.lower() not in COLORS else COLORS[
         category.lower()]
 
 
@@ -177,9 +199,27 @@ def insert_todo(todo: Todo):
         CUR.execute(INSERT_STMT, todo.get_dict())
 
 
-def get_all_todos() -> List[Todo]:
-    CUR.execute('SELECT * FROM task_table')
+def get_all_todos(show_archive: Optional[bool]) -> List[Todo]:
+    select_query = 'SELECT * FROM task_table'
+    if show_archive:
+        select_query += " WHERE status = '4'"
+    select_query += ' ORDER BY position'
+    CUR.execute(select_query)
     return [Todo(*result) for result in CUR.fetchall()]
+
+
+def move_task_to_end(position: int):
+    CUR.execute("SELECT COUNT(*) FROM task_table")
+    count = CUR.fetchone()[0]
+    if position >= count:
+        CONSOLE.print(f'No task at position: {position + 1}')
+        return
+    typer.echo(f"Moving task at {position}")
+    with CONN:
+        change_position(position, count + 1, False)
+        for pos in range(position + 1, count + 1):
+            print(f"Moving: {pos} To: {pos -1}")
+            change_position(pos, pos - 1, False)
 
 
 def delete_todo(position: int):
@@ -189,6 +229,10 @@ def delete_todo(position: int):
         return
     CUR.execute("SELECT COUNT(*) FROM task_table")
     count = CUR.fetchone()[0]
+    if position >= count:
+        CONSOLE.print(f'No task at position: {position + 1}')
+        return
+    typer.echo(f"Deleting task at {position + 1}")
     with CONN:
         CUR.execute("DELETE FROM task_table WHERE position = :position",
                     {"position": position})

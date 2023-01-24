@@ -4,12 +4,16 @@ from os import mkdir
 
 COLORS = {
     'priority': 'red1',
-    'teal': 'bright_cyan',
+    'teal': 'dark_cyan',
     'learn': 'dark_sea_green4',
     'ideas': 'dark_olive_green2',
     'reminders': 'orange_red1',
     'study': 'navajo_white1',
 }
+
+COLORS_TUP = ('bright_red', 'green', 'yellow', 'bright_magenta',
+              'dodger_blue4', 'green3', 'dark', 'spring_green3', 'purple4',
+              'medium_turquoise', 'deep_pink4h')
 INSERT_STMT = """INSERT INTO task_table VALUES
 (:task, :category, :date_added, :date_completed, :status, :position)"""
 HOME_DIR = expanduser('~')
